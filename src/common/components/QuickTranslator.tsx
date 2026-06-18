@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createUseStyles } from 'react-jss'
 import { useTranslation } from 'react-i18next'
+import { normalizeSelectableTranslationLang } from '../language-preferences'
 import { RxCross2 } from 'react-icons/rx'
 import { IThemedStyleProps } from '../types'
 import { useTheme } from '../hooks/useTheme'
@@ -392,7 +393,7 @@ export function QuickTranslator({ fetchContext, onClose, onHide }: QuickTranslat
     const pickerAbortRef = useRef<AbortController | null>(null)
     const translateAbortRef = useRef<AbortController | null>(null)
 
-    const targetLang = settings.defaultTargetLanguage || 'en'
+    const targetLang = normalizeSelectableTranslationLang(settings.defaultTargetLanguage || 'en', 'en')
 
     const runPicker = useCallback(
         async (wide: boolean) => {

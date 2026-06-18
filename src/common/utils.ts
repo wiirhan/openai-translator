@@ -7,6 +7,7 @@ import { listen, Event, emit } from '@tauri-apps/api/event'
 import { parse as bestEffortJSONParse } from 'best-effort-json-parser'
 import { commands } from '@/tauri/bindings'
 import { OPENAI_CHAT_COMPLETIONS_API_PATH, OPENAI_PREFERRED_DEFAULT_MODEL } from './openai-api-path'
+import { normalizeSelectableTranslationLang } from './language-preferences'
 
 export const defaultAPIURL = 'https://api.openai.com'
 export const defaultAPIURLPath = OPENAI_CHAT_COMPLETIONS_API_PATH
@@ -148,6 +149,8 @@ export async function getSettings(): Promise<ISettings> {
     if (!settings.writingTargetLanguage) {
         settings.writingTargetLanguage = defaultWritingTargetLanguage
     }
+    settings.defaultTargetLanguage = normalizeSelectableTranslationLang(settings.defaultTargetLanguage, 'en')
+    settings.writingTargetLanguage = normalizeSelectableTranslationLang(settings.writingTargetLanguage, 'en')
     if (settings.alwaysShowIcons === undefined || settings.alwaysShowIcons === null) {
         settings.alwaysShowIcons = false
     }

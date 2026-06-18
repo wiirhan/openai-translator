@@ -14,6 +14,7 @@ import { MdOutlineGrade, MdGrade, MdHistory } from 'react-icons/md'
 import * as mdIcons from 'react-icons/md'
 import { StatefulTooltip } from 'baseui-sd/tooltip'
 import { detectLang, getLangConfig, sourceLanguages, targetLanguages, LangCode } from '../lang'
+import { normalizeSelectableTranslationLang } from '../language-preferences'
 import { translate, TranslateMode } from '../translate'
 import { Select, Value, Option } from 'baseui-sd/select'
 import { RxEraser, RxEnter, RxReload, RxStop } from 'react-icons/rx'
@@ -959,7 +960,7 @@ function InnerTranslator(props: IInnerTranslatorProps) {
                         }
                         if (!targetLang_) {
                             if (settings?.defaultTargetLanguage) {
-                                return settings.defaultTargetLanguage as LangCode
+                                return normalizeSelectableTranslationLang(settings?.defaultTargetLanguage, 'en')
                             }
                             return newSourceLang
                         }
@@ -1367,8 +1368,8 @@ function InnerTranslator(props: IInnerTranslatorProps) {
             historyEntryIdRef.current = item.id ?? null
             lastHistoryKeyRef.current = null
             skipNextTranslateRef.current = true
-            setSourceLang(item.sourceLang)
-            setTargetLang(item.targetLang)
+            setSourceLang(normalizeSelectableTranslationLang(item.sourceLang, 'en'))
+            setTargetLang(normalizeSelectableTranslationLang(item.targetLang, 'en'))
             setEditableText(item.text)
             setTranslatedText(item.translatedText)
             setActionStr('')
@@ -1382,8 +1383,8 @@ function InnerTranslator(props: IInnerTranslatorProps) {
                 return {
                     ...prev,
                     text: item.text,
-                    sourceLang: item.sourceLang,
-                    targetLang: item.targetLang,
+                    sourceLang: normalizeSelectableTranslationLang(item.sourceLang, 'en'),
+                    targetLang: normalizeSelectableTranslationLang(item.targetLang, 'en'),
                     action: nextAction,
                     provider: providerFromHistory ?? prev.provider ?? settings.provider,
                     engineModel: item.engineModel ?? prev.engineModel,

@@ -8,6 +8,7 @@ import { oneLine } from 'common-tags'
 import { getUniversalFetch } from '../universal-fetch'
 import qs from 'qs'
 import { getSettings } from '../utils'
+import { normalizeSelectableTranslationLang, USER_SELECTABLE_TRANSLATION_LANGS } from '../language-preferences'
 
 export type LangCode =
     | 'en'
@@ -82,15 +83,11 @@ export type LangCode =
     | 'sv'
     | 'th'
 export type LanguageConfig = Required<OptionalLangConfig>
-export const supportedLanguages = Object.entries(LANG_CONFIGS).map(
-    ([code, config]) => [code, config.name] as [LangCode, string]
+export const supportedLanguages = USER_SELECTABLE_TRANSLATION_LANGS.map(
+    (code) => [code, LANG_CONFIGS[code].name] as [LangCode, string]
 )
-export const sourceLanguages = Object.entries(LANG_CONFIGS)
-    .filter(([, config]) => config.isSource !== false)
-    .map(([code, config]) => [code, config.name] as [LangCode, string])
-export const targetLanguages = Object.entries(LANG_CONFIGS)
-    .filter(([, config]) => config.isTarget !== false)
-    .map(([code, config]) => [code, config.name] as [LangCode, string])
+export const sourceLanguages = supportedLanguages
+export const targetLanguages = supportedLanguages
 export const langMap = new Map(Object.entries(LANG_CONFIGS).map(([code, config]) => [code, config.name]))
 export const langMapReverse = new Map(Object.entries(LANG_CONFIGS).map(([code, config]) => [config.name, code]))
 
@@ -345,18 +342,21 @@ export async function detectLang(text: string): Promise<LangCode> {
         detectedText = detectedText.slice(0, 1000)
     }
     const settings = await getSettings()
-    switch (settings.languageDetectionEngine) {
-        case 'baidu':
-            return await baiduDetectLang(detectedText)
-        case 'google':
-            return await googleDetectLang(detectedText)
-        case 'bing':
-            return await bingDetectLang(detectedText)
-        case 'local':
-            return await localDetectLang(detectedText)
-        default:
-            return await localDetectLang(detectedText)
-    }
+    const detected = await (async () => {
+        switch (settings.languageDetectionEngine) {
+            case 'baidu':
+                return await baiduDetectLang(detectedText)
+            case 'google':
+                return await googleDetectLang(detectedText)
+            case 'bing':
+                return await bingDetectLang(detectedText)
+            case 'local':
+                return await localDetectLang(detectedText)
+            default:
+                return await localDetectLang(detectedText)
+        }
+    })()
+    return normalizeSelectableTranslationLang(detected, 'en')
 }
 
 export function getLangConfig(langCode: LangCode): LanguageConfig {
@@ -377,9 +377,5 @@ export function getLangConfig(langCode: LangCode): LanguageConfig {
 }
 
 export function intoLangCode(langCode: string | null): LangCode {
-    const DEFAULT_LANGUAGE_CODE = 'en'
-    if (langCode && langCode in LANG_CONFIGS) {
-        return langCode as LangCode
-    }
-    return DEFAULT_LANGUAGE_CODE
+    return normalizeSelectableTranslationLang(langCode, 'en')
 }
