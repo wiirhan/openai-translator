@@ -66,9 +66,9 @@ body:
           required: true
     - type: input
       attributes:
-          label: 系统/浏览器版本 System/Browser version
+          label: 系统版本 System version
           description: >
-            请提供您正在使用的系统/浏览器版本。Please provide the version of the System/Browser you are using. For example, `macOS 11.2.3` or `Chrome 89.0.4389.114`.
+            请提供您正在使用的系统版本。Please provide the version of the system you are using. For example, `macOS 14.5`.
       validations:
           required: true
     - type: textarea

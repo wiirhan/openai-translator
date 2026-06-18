@@ -27,16 +27,6 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
-    "linux": {
-      "deb": {
-        "depends": [
-          "xdotool"
-        ]
-      },
-      "appimage": {
-        "bundleMediaFramework": true
-      }
-    },
     "category": "DeveloperTool",
     "copyright": "",
     "externalBin": [],
@@ -44,8 +34,7 @@
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
+      "icons/icon.icns"
     ],
     "longDescription": "",
     "macOS": {
@@ -59,15 +48,7 @@
       "resources/*"
     ],
     "shortDescription": "",
-    "targets": ["deb", "appimage", "nsis", "app", "dmg"],
-    "windows": {
-      "certificateThumbprint": null,
-      "digestAlgorithm": "sha256",
-      "timestampUrl": "",
-      "webviewInstallMode": {
-        "type": "embedBootstrapper"
-      }
-    }
+    "targets": ["app", "dmg"]
   },
   "app": {
     "withGlobalTauri": true,

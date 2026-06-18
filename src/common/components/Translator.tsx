@@ -22,19 +22,8 @@ import { clsx } from 'clsx'
 import { Button } from 'baseui-sd/button'
 import { ErrorBoundary } from 'react-error-boundary'
 import { ErrorFallback } from '../components/ErrorFallback'
-import {
-    defaultAPIURL,
-    exportToCsv,
-    isDesktopApp,
-    isTauri,
-    getAssetUrl,
-    isUserscript,
-    setSettings,
-    isBrowserExtensionContentScript,
-    isMacOS,
-} from '../utils'
+import { defaultAPIURL, exportToCsv, isDesktopApp, isTauri, getAssetUrl, isMacOS, setSettings } from '../utils'
 import { InnerSettings } from './Settings'
-import { containerID, popupCardInnerContainerId } from '../../browser-extension/content_script/consts'
 import Dropzone from 'react-dropzone'
 import { RecognizeResult, createWorker } from 'tesseract.js'
 import { BsTextareaT } from 'react-icons/bs'
@@ -1095,18 +1084,8 @@ function InnerTranslator(props: IInnerTranslatorProps) {
     const { collectedWordTotal, setCollectedWordTotal } = useCollectedWordTotal()
 
     useEffect(() => {
-        const popupCardInnerContainer: HTMLDivElement | null | undefined = document
-            .querySelector(`#${containerID}`)
-            ?.shadowRoot?.querySelector(`#${popupCardInnerContainerId}`)
-
-        if (!popupCardInnerContainer) {
-            return
-        }
-
         const calculateTranslatedContentMaxHeight = (): number => {
-            const { innerHeight } = window
-            const maxHeight = popupCardInnerContainer ? parseInt(popupCardInnerContainer.style.maxHeight) : innerHeight
-
+            const maxHeight = window.innerHeight
             const editorHeight = editorContainerRef.current?.offsetHeight || 0
             const actionButtonsHeight = actionButtonsRef.current?.offsetHeight || 0
             const headerHeight = headerRef.current?.offsetHeight || 0
@@ -1123,19 +1102,19 @@ function InnerTranslator(props: IInnerTranslatorProps) {
             return maxHeight - headerHeight - editorHeight - actionButtonsHeight - paddingVertical
         }
 
-        const resizeHandle: ResizeObserverCallback = _.debounce(() => {
-            // Listen for element height changes
+        const resizeHandle = _.debounce(() => {
             const $translatedContent = translatedContentRef.current
             if ($translatedContent) {
                 const translatedContentMaxHeight = calculateTranslatedContentMaxHeight()
                 $translatedContent.style.maxHeight = `${translatedContentMaxHeight}px`
             }
-        }, 500)
+        }, 100)
 
-        const observer = new ResizeObserver(resizeHandle)
-        observer.observe(popupCardInnerContainer)
+        resizeHandle()
+        window.addEventListener('resize', resizeHandle)
         return () => {
-            observer.disconnect()
+            window.removeEventListener('resize', resizeHandle)
+            resizeHandle.cancel()
         }
     }, [showSettings])
 
@@ -1444,10 +1423,6 @@ function InnerTranslator(props: IInnerTranslatorProps) {
             setShowSettings(true)
             return
         }
-        if (settings.provider === 'ChatGPT' && !settings.chatgptModel) {
-            setShowSettings(true)
-            return
-        }
         if (settings.provider === 'MiniMax' && !settings.miniMaxAPIKey) {
             setShowSettings(true)
             return
@@ -1614,7 +1589,7 @@ function InnerTranslator(props: IInnerTranslatorProps) {
         editableTextSpeakingIconRef.current?.click()
     }, [selectedWord, settings.readSelectedWordsFromInputElementsText])
 
-    const enableVocabulary = !isUserscript()
+    const enableVocabulary = true
 
     const handleStopGenerating = () => {
         translateControllerRef.current?.abort('stop')
@@ -1643,14 +1618,13 @@ function InnerTranslator(props: IInnerTranslatorProps) {
     }, [t, translatedText])
 
     // Window-level keyboard shortcut for "Insert into previous input"
-    // — ⇧⌘↩ on macOS, Ctrl+Shift+Enter elsewhere. Mirrors the toolbar button.
+    // — ⇧⌘↩ on macOS. Mirrors the toolbar button.
     useEffect(() => {
         if (!isTauri()) {
             return
         }
         const handler = (e: KeyboardEvent) => {
-            const accel = isMacOS ? e.metaKey : e.ctrlKey
-            if (!accel || !e.shiftKey) {
+            if (!e.metaKey || !e.shiftKey) {
                 return
             }
             if (e.key !== 'Enter') {
@@ -2420,30 +2394,6 @@ function InnerTranslator(props: IInnerTranslatorProps) {
                                                 </div>
                                             </Tooltip>
                                         </div>
-                                        {settings.provider === 'ChatGPT' && (
-                                            <div
-                                                style={{
-                                                    color: theme.colors.contentPrimary,
-                                                }}
-                                            >
-                                                {t('Go to the')}{' '}
-                                                <a
-                                                    target='_blank'
-                                                    href={
-                                                        settings?.i18n?.toLowerCase().includes('zh')
-                                                            ? 'https://github.com/nextai-translator/nextai-translator/blob/main/docs/chatgpt-cn.md'
-                                                            : 'https://github.com/nextai-translator/nextai-translator/blob/main/docs/chatgpt.md'
-                                                    }
-                                                    rel='noreferrer'
-                                                    style={{
-                                                        color: theme.colors.contentSecondary,
-                                                    }}
-                                                >
-                                                    FAQ Page
-                                                </a>{' '}
-                                                {t('to get the solutions.')}
-                                            </div>
-                                        )}
                                     </>
                                 ) : (
                                     <div
@@ -2570,9 +2520,7 @@ function InnerTranslator(props: IInnerTranslatorProps) {
                                                 )}
                                                 {isTauri() && (
                                                     <Tooltip
-                                                        content={`${t('Insert into previous input')} (${
-                                                            isMacOS ? '⇧⌘↩' : 'Ctrl+Shift+Enter'
-                                                        })`}
+                                                        content={`${t('Insert into previous input')} (⇧⌘↩)`}
                                                         placement='bottom'
                                                     >
                                                         <div
@@ -2586,26 +2534,6 @@ function InnerTranslator(props: IInnerTranslatorProps) {
                                                 <CopyButton text={translatedText} styles={styles}></CopyButton>
                                             </div>
                                         )}
-                                    </div>
-                                )}
-                                {isNotLogin && settings?.provider === 'ChatGPT' && (
-                                    <div
-                                        style={{
-                                            fontSize: '12px',
-                                            color: theme.colors.contentPrimary,
-                                        }}
-                                    >
-                                        <span>{t('Please login to ChatGPT Web')}: </span>
-                                        <a
-                                            href='https://chat.openai.com'
-                                            target='_blank'
-                                            rel='noreferrer'
-                                            style={{
-                                                color: theme.colors.contentSecondary,
-                                            }}
-                                        >
-                                            Login
-                                        </a>
                                     </div>
                                 )}
                                 {isNotLogin && settings?.provider === 'Kimi' && (
@@ -2718,19 +2646,10 @@ function InnerTranslator(props: IInnerTranslatorProps) {
                                     },
                                 },
                             }}
-                            onClick={async (e) => {
+                            onClick={(e) => {
                                 e.stopPropagation()
                                 e.preventDefault()
-                                if (isBrowserExtensionContentScript()) {
-                                    const browser = (await import('webextension-polyfill')).default
-                                    await browser.runtime.sendMessage({
-                                        type: 'openOptionsPage',
-                                        openaiAPIKeyPromotionID: openaiAPIKeyPromotion?.id,
-                                        headerPromotionID: settingsHeaderPromotion?.id,
-                                    })
-                                } else {
-                                    setShowSettings((s: boolean) => !s)
-                                }
+                                setShowSettings((s: boolean) => !s)
                             }}
                         >
                             <div

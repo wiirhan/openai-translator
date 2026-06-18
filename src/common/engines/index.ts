@@ -1,6 +1,5 @@
 import { RiOpenaiFill } from 'react-icons/ri'
 import { Azure } from './azure'
-import { ChatGPT } from './chatgpt'
 import { Gemini } from './gemini'
 import { IEngine } from './interfaces'
 import { MiniMax } from './minimax'
@@ -30,7 +29,6 @@ import { Cerebras } from './cerebras'
 
 export type Provider =
     | 'OpenAI'
-    | 'ChatGPT'
     | 'Azure'
     | 'MiniMax'
     | 'Moonshot'
@@ -46,7 +44,6 @@ export type Provider =
 
 export const engineIcons: Record<Provider, IconType> = {
     OpenAI: RiOpenaiFill,
-    ChatGPT: RiOpenaiFill,
     Azure: VscAzureDevops,
     MiniMax: GiArtificialIntelligence,
     Moonshot: MoonshotIcon,
@@ -63,7 +60,6 @@ export const engineIcons: Record<Provider, IconType> = {
 
 export const providerToEngine: Record<Provider, { new (): IEngine }> = {
     OpenAI: OpenAI,
-    ChatGPT: ChatGPT,
     Azure: Azure,
     MiniMax: MiniMax,
     Moonshot: Moonshot,

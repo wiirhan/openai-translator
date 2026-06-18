@@ -160,8 +160,6 @@ dependencies = [
  "tiny_http",
  "tokio",
  "whatlang",
- "windows 0.61.3",
- "xcb 1.6.0",
 ]
 
 [[package]]

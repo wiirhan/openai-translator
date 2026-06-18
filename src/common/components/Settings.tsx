@@ -64,7 +64,6 @@ import { usePromotionNeverDisplay } from '../hooks/usePromotionNeverDisplay'
 import { Textarea } from 'baseui-sd/textarea'
 import { ProxyTester } from './ProxyTester'
 import { CUSTOM_MODEL_ID } from '../constants'
-import { isMacOS } from '../utils'
 import NumberInput from './NumberInput'
 import { DurationPicker } from './DurationPicker'
 import {
@@ -812,12 +811,10 @@ export function APIModelSelector({
     const [isLoading, setIsLoading] = useState(false)
     const [options, setOptions] = useState<APIModelOption[]>([])
     const [errMsg, setErrMsg] = useState<string>()
-    const [isChatGPTNotLogin, setIsChatGPTNotLogin] = useState(false)
     const [refreshFlag, refresh] = useReducer((x: number) => x + 1, 0)
     const { theme } = useTheme()
 
     useEffect(() => {
-        setIsChatGPTNotLogin(false)
         setErrMsg('')
         setOptions([])
         if (provider !== currentProvider) {
@@ -872,13 +869,6 @@ export function APIModelSelector({
                 ])
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } catch (e: any) {
-                if (
-                    provider === 'ChatGPT' &&
-                    e.message &&
-                    (e.message.includes('not login') || e.message.includes('Forbidden'))
-                ) {
-                    setIsChatGPTNotLogin(true)
-                }
                 setErrMsg(e.message)
             } finally {
                 setIsLoading(false)
@@ -970,18 +960,6 @@ export function APIModelSelector({
                         }}
                     >
                         {errMsg}
-                    </div>
-                )}
-                {isChatGPTNotLogin && (
-                    <div
-                        style={{
-                            color: theme.colors.contentPrimary,
-                        }}
-                    >
-                        <span>{t('Please login to ChatGPT Web')}: </span>
-                        <a href='https://chat.openai.com' target='_blank' rel='noreferrer' style={linkStyle}>
-                            Login
-                        </a>
                     </div>
                 )}
             </div>
@@ -1418,44 +1396,24 @@ export function ProviderSelector({ value, onChange, hasPromotion }: IProviderSel
         }
     }
 
-    const options = utils.isDesktopApp()
-        ? ([
-              { label: 'OpenAI', id: 'OpenAI' },
-              { label: 'Claude', id: 'Claude' },
-              { label: `Kimi (${t('Free')})`, id: 'Kimi' },
-              { label: `${t('ChatGLM')} (${t('Free')})`, id: 'ChatGLM' },
-              { label: 'Cohere', id: 'Cohere' },
-              { label: `Ollama (${t('Local Model')})`, id: 'Ollama' },
-              { label: 'Gemini', id: 'Gemini' },
-              // { label: 'ChatGPT (Web)', id: 'ChatGPT' },
-              { label: 'Azure', id: 'Azure' },
-              { label: 'MiniMax', id: 'MiniMax' },
-              { label: 'Moonshot', id: 'Moonshot' },
-              { label: 'Groq', id: 'Groq' },
-              { label: 'DeepSeek', id: 'DeepSeek' },
-              { label: 'Cerebras', id: 'Cerebras' },
-          ] as {
-              label: string
-              id: Provider
-          }[])
-        : ([
-              { label: 'OpenAI', id: 'OpenAI' },
-              { label: 'Claude', id: 'Claude' },
-              { label: `Kimi (${t('Free')})`, id: 'Kimi' },
-              { label: `${t('ChatGLM')} (${t('Free')})`, id: 'ChatGLM' },
-              { label: 'ChatGPT (Web)', id: 'ChatGPT' },
-              { label: 'Cohere', id: 'Cohere' },
-              { label: 'Gemini', id: 'Gemini' },
-              { label: 'Azure', id: 'Azure' },
-              { label: 'MiniMax', id: 'MiniMax' },
-              { label: 'Moonshot', id: 'Moonshot' },
-              { label: 'Groq', id: 'Groq' },
-              { label: 'DeepSeek', id: 'DeepSeek' },
-              { label: 'Cerebras', id: 'Cerebras' },
-          ] as {
-              label: string
-              id: Provider
-          }[])
+    const options = [
+        { label: 'OpenAI', id: 'OpenAI' },
+        { label: 'Claude', id: 'Claude' },
+        { label: `Kimi (${t('Free')})`, id: 'Kimi' },
+        { label: `${t('ChatGLM')} (${t('Free')})`, id: 'ChatGLM' },
+        { label: 'Cohere', id: 'Cohere' },
+        { label: `Ollama (${t('Local Model')})`, id: 'Ollama' },
+        { label: 'Gemini', id: 'Gemini' },
+        { label: 'Azure', id: 'Azure' },
+        { label: 'MiniMax', id: 'MiniMax' },
+        { label: 'Moonshot', id: 'Moonshot' },
+        { label: 'Groq', id: 'Groq' },
+        { label: 'DeepSeek', id: 'DeepSeek' },
+        { label: 'Cerebras', id: 'Cerebras' },
+    ] as {
+        label: string
+        id: Provider
+    }[]
 
     return (
         <Select
@@ -2251,18 +2209,16 @@ export function InnerSettings({
     return (
         <div
             style={{
-                paddingTop: utils.isBrowserExtensionOptions() ? undefined : '136px',
-                paddingBottom: utils.isBrowserExtensionOptions() ? undefined : '32px',
-                background: isDesktopApp ? 'transparent' : theme.colors.backgroundPrimary,
-                minWidth: isDesktopApp ? 450 : 400,
-                maxHeight: utils.isUserscript() ? 'calc(100vh - 32px)' : undefined,
-                overflow: utils.isUserscript() ? 'auto' : undefined,
+                paddingTop: '136px',
+                paddingBottom: '32px',
+                background: 'transparent',
+                minWidth: 450,
             }}
             data-testid='settings-container'
         >
             <nav
                 style={{
-                    position: utils.isBrowserExtensionOptions() ? 'sticky' : 'fixed',
+                    position: 'fixed',
                     left: 0,
                     top: 0,
                     zIndex: 999,
@@ -2459,7 +2415,6 @@ export function InnerSettings({
                 form={form}
                 style={{
                     padding: '20px 25px',
-                    paddingBottom: utils.isBrowserExtensionOptions() ? 0 : undefined,
                 }}
                 onFinish={onSubmit}
                 initialValues={values}
@@ -3131,23 +3086,6 @@ export function InnerSettings({
                         </div>
                         <div
                             style={{
-                                display: values.provider === 'ChatGPT' ? 'block' : 'none',
-                            }}
-                        >
-                            <FormItem
-                                name='chatgptModel'
-                                label={t('API Model')}
-                                required={values.provider === 'ChatGPT'}
-                            >
-                                <APIModelSelector
-                                    provider='ChatGPT'
-                                    currentProvider={values.provider}
-                                    onBlur={onBlur}
-                                />
-                            </FormItem>
-                        </div>
-                        <div
-                            style={{
                                 display: values.provider === 'MiniMax' ? 'block' : 'none',
                             }}
                         >
@@ -3300,33 +3238,7 @@ export function InnerSettings({
                         <FormItem name='fontSize' label={t('Font size')}>
                             <NumberInput />
                         </FormItem>
-                        <FormItem
-                            name='alwaysShowIcons'
-                            label={t('Show icon when text is selected')}
-                            caption={
-                                isDesktopApp && (
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 6,
-                                        }}
-                                    >
-                                        {t(
-                                            'It is highly recommended to disable this feature and use the Clip Extension'
-                                        )}
-                                        <a
-                                            href='https://github.com/nextai-translator/nextai-translator/blob/main/CLIP-EXTENSIONS.md'
-                                            target='_blank'
-                                            rel='noreferrer'
-                                            style={linkStyle}
-                                        >
-                                            {t('Clip Extension')}
-                                        </a>
-                                    </div>
-                                )
-                            }
-                        >
+                        <FormItem name='alwaysShowIcons' label={t('Show icon when text is selected')}>
                             <MyCheckbox onBlur={onBlur} />
                         </FormItem>
                         <FormItem name='autoTranslate' label={t('Auto Translate')}>
@@ -3354,7 +3266,7 @@ export function InnerSettings({
                                 display: isDesktopApp ? 'block' : 'none',
                             }}
                             name='hideTheIconInTheDock'
-                            label={isMacOS ? t('Hide the icon in the Dock bar') : t('Hide the icon in the taskbar')}
+                            label={t('Hide the icon in the Dock bar')}
                         >
                             <MyCheckbox onBlur={onBlur} />
                         </FormItem>
@@ -3511,10 +3423,9 @@ export function InnerSettings({
                 </div>
                 <div
                     style={{
-                        position: utils.isBrowserExtensionOptions() ? 'sticky' : 'fixed',
+                        position: 'fixed',
                         bottom: '7px',
                         right: '25px',
-                        paddingBottom: utils.isBrowserExtensionOptions() ? '10px' : undefined,
                         display: 'flex',
                         alignItems: 'center',
                         flexDirection: 'row',

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createParser } from 'eventsource-parser'
-import { IBrowser, ISettings } from './types'
+import { ISettings } from './types'
 import { getUniversalFetch } from './universal-fetch'
 import { v4 as uuidv4 } from 'uuid'
 import { listen, Event, emit } from '@tauri-apps/api/event'
@@ -13,10 +13,7 @@ export const defaultAPIURLPath = OPENAI_CHAT_COMPLETIONS_API_PATH
 export const defaultProvider = 'OpenAI'
 export const defaultAPIModel = OPENAI_PREFERRED_DEFAULT_MODEL
 
-export const defaultChatGPTAPIAuthSessionAPIURL = 'https://chat.openai.com/api/auth/session'
-export const defaultChatGPTWebAPI = 'https://chat.openai.com/backend-api'
 export const defaultGeminiAPIURL = 'https://generativelanguage.googleapis.com'
-export const defaultChatGPTModel = 'text-davinci-002-render-sha'
 
 export const defaultAutoTranslate = false
 export const defaultTargetLanguage = 'zh-Hans'
@@ -37,7 +34,7 @@ export async function getAzureApiKey(): Promise<string> {
     return apiKeys[Math.floor(Math.random() * apiKeys.length)] ?? ''
 }
 
-// In order to let the type system remind you that all keys have been passed to browser.storage.sync.get(keys)
+// Desktop config shape reference to keep defaults aligned with ISettings.
 const settingKeys: Record<keyof ISettings, number> = {
     automaticCheckForUpdates: 1,
     apiKeys: 1,
@@ -45,7 +42,6 @@ const settingKeys: Record<keyof ISettings, number> = {
     apiURLPath: 1,
     apiModel: 1,
     provider: 1,
-    chatgptModel: 1,
     azureAPIKeys: 1,
     azureAPIURL: 1,
     azureAPIURLPath: 1,
@@ -121,12 +117,10 @@ const settingKeys: Record<keyof ISettings, number> = {
     claudeThinkingLevel: 1,
     useCompactLookup: 1,
 }
+void settingKeys
 
 export async function getSettings(): Promise<ISettings> {
-    const browser = await getBrowser()
-    const items = await browser.storage.sync.get(Object.keys(settingKeys))
-
-    const settings = items as ISettings
+    const settings = JSON.parse(await commands.getConfigContent()) as Partial<ISettings>
     if (!settings.apiKeys) {
         settings.apiKeys = ''
     }
@@ -155,7 +149,7 @@ export async function getSettings(): Promise<ISettings> {
         settings.writingTargetLanguage = defaultWritingTargetLanguage
     }
     if (settings.alwaysShowIcons === undefined || settings.alwaysShowIcons === null) {
-        settings.alwaysShowIcons = !isTauri()
+        settings.alwaysShowIcons = false
     }
     if (!settings.i18n) {
         settings.i18n = defaulti18n
@@ -187,11 +181,6 @@ export async function getSettings(): Promise<ISettings> {
         }
         if (!settings.azureAPIModel) {
             settings.azureAPIModel = settings.apiModel
-        }
-    }
-    if (settings.provider === 'ChatGPT') {
-        if (!settings.chatgptModel) {
-            settings.chatgptModel = settings.apiModel
         }
     }
     if (settings.automaticCheckForUpdates === undefined || settings.automaticCheckForUpdates === null) {
@@ -262,29 +251,22 @@ export async function getSettings(): Promise<ISettings> {
     if (settings.thinkingEnabled === undefined || settings.thinkingEnabled === null) {
         settings.thinkingEnabled = false
     }
-    return settings
+    return settings as ISettings
 }
 
 export async function setSettings(settings: Partial<ISettings>) {
-    const browser = await getBrowser()
-    await browser.storage.sync.set(settings)
-}
-
-export async function getBrowser(): Promise<IBrowser> {
-    if (isElectron()) {
-        return (await import('./polyfills/electron')).electronBrowser
-    }
-    if (isTauri()) {
-        return (await import('./polyfills/tauri')).tauriBrowser
-    }
-    if (isUserscript()) {
-        return (await import('./polyfills/userscript')).userscriptBrowser
-    }
-    return (await import('webextension-polyfill')).default
-}
-
-export const isElectron = () => {
-    return navigator.userAgent.indexOf('Electron') >= 0
+    const currentSettings = JSON.parse(await commands.getConfigContent()) as Record<string, any>
+    const newItems = Object.entries(settings).reduce((acc, [key, value]) => {
+        if (value === undefined) {
+            return acc
+        }
+        return { ...acc, [key]: value }
+    }, {})
+    const nextSettings = { ...currentSettings, ...newItems }
+    const { BaseDirectory, writeTextFile } = await import('@tauri-apps/plugin-fs')
+    await writeTextFile('config.json', JSON.stringify(nextSettings), {
+        baseDir: BaseDirectory.AppConfig,
+    })
 }
 
 export const isTauri = () => {
@@ -294,27 +276,8 @@ export const isTauri = () => {
     return window['__TAURI__' as any] !== undefined
 }
 
-export const isBrowserExtensionOptions = () => {
-    if (typeof window === 'undefined') {
-        return false
-    }
-    return window['__IS_OT_BROWSER_EXTENSION_OPTIONS__' as any] !== undefined
-}
-
-export const isBrowserExtensionContentScript = () => {
-    if (typeof window === 'undefined') {
-        return false
-    }
-    return window['__IS_OT_BROWSER_EXTENSION_CONTENT_SCRIPT__' as any] !== undefined
-}
-
 export const isDesktopApp = () => {
-    return isElectron() || isTauri()
-}
-
-export const isUserscript = () => {
-    // eslint-disable-next-line camelcase
-    return typeof GM_info !== 'undefined'
+    return isTauri()
 }
 
 export const isDarkMode = async () => {
@@ -333,8 +296,7 @@ export const isUsingOpenAIOfficialAPIEndpoint = async () => {
 }
 
 export const isUsingOpenAIOfficial = async () => {
-    const settings = await getSettings()
-    return settings.provider === 'ChatGPT' || (await isUsingOpenAIOfficialAPIEndpoint())
+    return await isUsingOpenAIOfficialAPIEndpoint()
 }
 
 // js to csv
@@ -558,13 +520,9 @@ export async function fetchSSE(input: string, options: FetchSSEOptions) {
 }
 
 export function getAssetUrl(asset: string) {
-    if (isUserscript()) {
-        return asset
-    }
     return new URL(asset, import.meta.url).href
 }
 export const isMacOS = navigator.userAgent.includes('Mac OS X')
-export const isWindows = navigator.userAgent.includes('Windows')
 
 /** Maps a provider name to its API key field in ISettings. */
 export function getAPIKeyForProvider(provider: string, settings: ISettings): string | undefined {
@@ -593,7 +551,6 @@ export function getAPIKeyForProvider(provider: string, settings: ISettings): str
             return settings.kimiAccessToken
         case 'ChatGLM':
             return settings.chatglmAccessToken
-        case 'ChatGPT':
         case 'Ollama':
             return undefined
         default:

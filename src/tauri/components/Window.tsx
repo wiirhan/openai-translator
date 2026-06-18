@@ -15,7 +15,7 @@ import { IThemedStyleProps } from '../../common/types'
 import { createUseStyles } from 'react-jss'
 import { open } from '@tauri-apps/plugin-shell'
 import { usePinned } from '../../common/hooks/usePinned'
-import { isMacOS, isTauri, isWindows } from '@/common/utils'
+import { isMacOS, isTauri } from '@/common/utils'
 import { useSetAtom } from 'jotai'
 
 import { showSettingsAtom } from '@/common/store/setting'
@@ -150,12 +150,10 @@ export function InnerWindow(props: IWindowProps) {
             // link: https://beta.tauri.app/references/v2/js/core/namespacewindow/#mica
             if (isMacOS) {
                 appWindow.setEffects({ effects: [Effect.WindowBackground] })
-            } else if (isWindows) {
-                appWindow.setEffects({ effects: [Effect.Mica] })
             }
             setBackgroundBlur(true)
         } else {
-            if (isMacOS || isWindows) {
+            if (isMacOS) {
                 appWindow.clearEffects()
             }
             setBackgroundBlur(false)

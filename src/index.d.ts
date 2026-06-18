@@ -1,4 +1,4 @@
-/// <reference types="@samrum/vite-plugin-web-extension/client" />
+/// <reference types="vite/client" />
 
 declare module '*.png'
 declare module '*.gif'
