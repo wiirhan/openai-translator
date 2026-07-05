@@ -18,9 +18,6 @@ export const commands = {
     async showTranslatorWindowWithSelectedTextCommand(): Promise<void> {
         await TAURI_INVOKE('show_translator_window_with_selected_text_command')
     },
-    async showActionManagerWindow(): Promise<void> {
-        await TAURI_INVOKE('show_action_manager_window')
-    },
     async showHistoryWindow(): Promise<void> {
         await TAURI_INVOKE('show_history_window')
     },

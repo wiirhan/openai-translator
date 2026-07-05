@@ -41,11 +41,10 @@ use crate::ocr::{cut_image, finish_ocr, screenshot, start_ocr};
 use crate::windows::{
     get_translator_window_always_on_top, get_writing_indicator_pending_lang,
     hide_inline_lookup_window, hide_quick_translator_window, hide_translator_window,
-    hide_writing_indicator, show_action_manager_window, show_history_window,
-    show_inline_lookup_window_command, show_quick_translator_window_command,
-    show_translator_window_command, show_translator_window_with_selected_text_command,
-    show_updater_window, show_writing_indicator, toggle_translator_window_always_on_top,
-    TRANSLATOR_WIN_NAME,
+    hide_writing_indicator, show_history_window, show_inline_lookup_window_command,
+    show_quick_translator_window_command, show_translator_window_command,
+    show_translator_window_with_selected_text_command, show_updater_window, show_writing_indicator,
+    toggle_translator_window_always_on_top, TRANSLATOR_WIN_NAME,
 };
 use crate::writing::{finish_writing, write_to_input, writing_command};
 
@@ -358,7 +357,6 @@ fn main() {
             clear_config_cache,
             show_translator_window_command,
             show_translator_window_with_selected_text_command,
-            show_action_manager_window,
             show_history_window,
             get_translator_window_always_on_top,
             toggle_translator_window_always_on_top,

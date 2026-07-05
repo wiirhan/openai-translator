@@ -5,7 +5,6 @@
   "windows": [
     "translator",
     "settings",
-    "action_manager",
     "updater",
     "thumb",
     "screenshot",

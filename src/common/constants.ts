@@ -8,25 +8,5 @@ export const builtinActionModes: { name: string; mode: Exclude<TranslateMode, 'b
         mode: 'translate',
         icon: 'MdOutlineGTranslate',
     },
-    {
-        name: 'Polishing',
-        mode: 'polishing',
-        icon: 'MdPalette',
-    },
-    {
-        name: 'Summarize',
-        mode: 'summarize',
-        icon: 'MdOutlineSummarize',
-    },
-    {
-        name: 'Analyze',
-        mode: 'analyze',
-        icon: 'MdOutlineAnalytics',
-    },
-    {
-        name: 'Explain Code',
-        mode: 'explain-code',
-        icon: 'MdCode',
-    },
 ]
 export const chatgptArkoseReqParams = 'cgb=vhwi'

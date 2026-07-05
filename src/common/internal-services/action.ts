@@ -3,6 +3,8 @@ import { Provider } from '../engines'
 import { TranslateMode } from '../translate'
 import { Action, ActionOutputRenderingFormat, getLocalDB } from './db'
 
+const builtinActionModeSet = new Set<TranslateMode>(builtinActionModes.map((action) => action.mode))
+
 export interface ICreateActionOption {
     name: string
     mode?: TranslateMode
@@ -148,7 +150,8 @@ class ActionInternalService implements IActionInternalService {
                 })
             })
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            return await (this.db.action.orderBy('idx') as any).toArray()
+            const nextActions = await (this.db.action.orderBy('idx') as any).toArray()
+            return nextActions.filter((action: Action) => action.mode && builtinActionModeSet.has(action.mode))
         })
     }
 

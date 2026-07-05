@@ -22,7 +22,6 @@ use tokio::time::sleep;
 
 pub const TRANSLATOR_WIN_NAME: &str = "translator";
 pub const SETTINGS_WIN_NAME: &str = "settings";
-pub const ACTION_MANAGER_WIN_NAME: &str = "action_manager";
 pub const UPDATER_WIN_NAME: &str = "updater";
 pub const THUMB_WIN_NAME: &str = "thumb";
 pub const HISTORY_WIN_NAME: &str = "history";
@@ -571,43 +570,6 @@ pub fn get_translator_window(
         }
         window.center().unwrap();
     }
-
-    window
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn show_action_manager_window() {
-    let window = get_action_manager_window();
-    window.center().unwrap();
-    window.show().unwrap();
-}
-
-pub fn get_action_manager_window() -> tauri::WebviewWindow {
-    let handle = APP_HANDLE.get().unwrap();
-    let window = match handle.get_webview_window(ACTION_MANAGER_WIN_NAME) {
-        Some(window) => {
-            window.unminimize().unwrap();
-            window.set_focus().unwrap();
-            window
-        }
-        None => {
-            let builder = tauri::WebviewWindowBuilder::new(
-                handle,
-                ACTION_MANAGER_WIN_NAME,
-                tauri::WebviewUrl::App("src/tauri/index.html".into()),
-            )
-            .title("NextAI Translator Action Manager")
-            .fullscreen(false)
-            .inner_size(700.0, 700.0)
-            .min_inner_size(660.0, 600.0)
-            .resizable(true)
-            .skip_taskbar(true)
-            .focused(true);
-
-            return build_window(builder);
-        }
-    };
 
     window
 }
