@@ -64,6 +64,7 @@ const settingKeys: Record<keyof ISettings, number> = {
     alwaysShowIcons: 1,
     hotkey: 1,
     displayWindowHotkey: 1,
+    pinHotkey: 1,
     ocrHotkey: 1,
     quickTranslatorHotkey: 1,
     writingTargetLanguage: 1,

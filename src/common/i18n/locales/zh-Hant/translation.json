@@ -154,6 +154,7 @@
     "Enable mica (Experimental)": "啟用雲母效果（實驗性）",
     "**Win11 only. If the mica effect is enabled, it is essential to set the `Theme` to `Follow the system`, as it is currently not possible to manually switch between the light and dark themes of mica.": "**僅限 Windows 11。如果啟用了雲母效果，務必將「主題」設定為「跟隨系統」，因為目前無法手動在雲母效果的淺色和深色主題之間切換。",
     "Display window Hotkey": "顯示視窗快捷鍵",
+    "Pin window Hotkey": "置頂視窗快捷鍵",
     "Hide the icon in the Dock bar": "隱藏 Dock 列中的圖示",
     "Disagree": "不同意",
     "Agree and continue": "同意並繼續",

@@ -27,6 +27,9 @@ export const commands = {
     async getTranslatorWindowAlwaysOnTop(): Promise<boolean> {
         return await TAURI_INVOKE('get_translator_window_always_on_top')
     },
+    async toggleTranslatorWindowAlwaysOnTop(): Promise<boolean> {
+        return await TAURI_INVOKE('toggle_translator_window_always_on_top')
+    },
     async fetchStream(id: string, url: string, optionsStr: string): Promise<Result<string, string>> {
         try {
             return { status: 'ok', data: await TAURI_INVOKE('fetch_stream', { id, url, optionsStr }) }

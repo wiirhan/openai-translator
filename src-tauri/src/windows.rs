@@ -1,5 +1,6 @@
 use crate::config;
 use crate::insertion::remember_active_window;
+use crate::tray::PinnedFromTrayEvent;
 use crate::utils;
 use crate::UpdateResult;
 use crate::ALWAYS_ON_TOP;
@@ -113,6 +114,17 @@ pub fn set_translator_window_always_on_top() -> bool {
     } else {
         false
     }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn toggle_translator_window_always_on_top() -> bool {
+    let pinned = set_translator_window_always_on_top();
+    if let Some(handle) = APP_HANDLE.get() {
+        PinnedFromTrayEvent { pinned }.emit(handle).unwrap_or_default();
+        crate::tray::create_tray(handle).unwrap_or_default();
+    }
+    pinned
 }
 
 #[tauri::command]

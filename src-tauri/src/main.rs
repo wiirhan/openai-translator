@@ -44,7 +44,8 @@ use crate::windows::{
     hide_writing_indicator, show_action_manager_window, show_history_window,
     show_inline_lookup_window_command, show_quick_translator_window_command,
     show_translator_window_command, show_translator_window_with_selected_text_command,
-    show_updater_window, show_writing_indicator, TRANSLATOR_WIN_NAME,
+    show_updater_window, show_writing_indicator, toggle_translator_window_always_on_top,
+    TRANSLATOR_WIN_NAME,
 };
 use crate::writing::{finish_writing, write_to_input, writing_command};
 
@@ -360,6 +361,7 @@ fn main() {
             show_action_manager_window,
             show_history_window,
             get_translator_window_always_on_top,
+            toggle_translator_window_always_on_top,
             fetch_stream,
             writing_command,
             write_to_input,

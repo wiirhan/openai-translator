@@ -1,4 +1,4 @@
-import { isRegistered, register, unregister } from '@tauri-apps/plugin-global-shortcut'
+import { isRegistered, register, unregister, type ShortcutEvent } from '@tauri-apps/plugin-global-shortcut'
 import { getSettings } from '@/common/utils'
 import { sendNotification } from '@tauri-apps/plugin-notification'
 import { commands, events } from './bindings'
@@ -28,6 +28,10 @@ export function isMissingNormalKey(hotkey: string): boolean {
     return tokens.every((token) => isModifierKey(token))
 }
 
+function isShortcutPressed(event: ShortcutEvent) {
+    return event.state === 'Pressed'
+}
+
 export async function bindHotkey(oldHotKey?: string) {
     if (oldHotKey && !isMissingNormalKey(oldHotKey) && (await isRegistered(oldHotKey))) {
         await unregister(oldHotKey)
@@ -44,7 +48,8 @@ export async function bindHotkey(oldHotKey?: string) {
     if (await isRegistered(settings.hotkey)) {
         await unregister(settings.hotkey)
     }
-    await register(settings.hotkey, () => {
+    await register(settings.hotkey, (event) => {
+        if (!isShortcutPressed(event)) return
         return commands.showTranslatorWindowWithSelectedTextCommand()
     }).then(() => {
         console.log('register hotkey success')
@@ -67,10 +72,35 @@ export async function bindDisplayWindowHotkey(oldHotKey?: string) {
     if (await isRegistered(settings.displayWindowHotkey)) {
         await unregister(settings.displayWindowHotkey)
     }
-    await register(settings.displayWindowHotkey, () => {
+    await register(settings.displayWindowHotkey, (event) => {
+        if (!isShortcutPressed(event)) return
         commands.showTranslatorWindowCommand()
     }).then(() => {
         console.log('register display window hotkey success')
+    })
+}
+
+export async function bindPinHotkey(oldHotKey?: string) {
+    if (oldHotKey && !isMissingNormalKey(oldHotKey) && (await isRegistered(oldHotKey))) {
+        await unregister(oldHotKey)
+    }
+    const settings = await getSettings()
+    if (!settings.pinHotkey) return
+    if (isMissingNormalKey(settings.pinHotkey)) {
+        sendNotification({
+            title: 'Cannot bind hotkey',
+            body: `Hotkey must contain at least one normal key: ${settings.pinHotkey}`,
+        })
+        return
+    }
+    if (await isRegistered(settings.pinHotkey)) {
+        await unregister(settings.pinHotkey)
+    }
+    await register(settings.pinHotkey, (event) => {
+        if (!isShortcutPressed(event)) return
+        return commands.toggleTranslatorWindowAlwaysOnTop()
+    }).then(() => {
+        console.log('pin hotkey registered')
     })
 }
 
@@ -90,7 +120,8 @@ export async function bindOCRHotkey(oldOCRHotKey?: string) {
     if (await isRegistered(settings.ocrHotkey)) {
         await unregister(settings.ocrHotkey)
     }
-    await register(settings.ocrHotkey, () => {
+    await register(settings.ocrHotkey, (event) => {
+        if (!isShortcutPressed(event)) return
         return commands.startOcr()
     }).then(() => {
         console.log('OCR hotkey registered')
@@ -113,7 +144,8 @@ export async function bindQuickTranslatorHotkey(oldHotKey?: string) {
     if (await isRegistered(settings.quickTranslatorHotkey)) {
         await unregister(settings.quickTranslatorHotkey)
     }
-    await register(settings.quickTranslatorHotkey, () => {
+    await register(settings.quickTranslatorHotkey, (event) => {
+        if (!isShortcutPressed(event)) return
         return commands.showQuickTranslatorWindowCommand()
     }).then(() => {
         console.log('quick translator hotkey registered')
@@ -136,7 +168,8 @@ export async function bindWritingHotkey(oldWritingHotKey?: string) {
     if (await isRegistered(settings.writingHotkey)) {
         await unregister(settings.writingHotkey)
     }
-    await register(settings.writingHotkey, () => {
+    await register(settings.writingHotkey, (event) => {
+        if (!isShortcutPressed(event)) return
         return commands.writingCommand()
     }).then(() => {
         console.log('writing hotkey registered')
@@ -147,6 +180,7 @@ export function onSettingsSave(oldSettings: ISettings) {
     events.configUpdatedEvent.emit()
     bindHotkey(oldSettings.hotkey)
     bindDisplayWindowHotkey(oldSettings.displayWindowHotkey)
+    bindPinHotkey(oldSettings.pinHotkey)
     bindOCRHotkey(oldSettings.ocrHotkey)
     bindQuickTranslatorHotkey(oldSettings.quickTranslatorHotkey)
     bindWritingHotkey(oldSettings.writingHotkey)

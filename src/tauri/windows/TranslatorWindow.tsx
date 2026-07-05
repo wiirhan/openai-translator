@@ -6,6 +6,7 @@ import {
     bindDisplayWindowHotkey,
     bindHotkey,
     bindOCRHotkey,
+    bindPinHotkey,
     bindQuickTranslatorHotkey,
     bindWritingHotkey,
     onSettingsSave,
@@ -255,6 +256,7 @@ export function TranslatorWindow() {
     useEffect(() => {
         bindHotkey()
         bindDisplayWindowHotkey()
+        bindPinHotkey()
         bindOCRHotkey()
         bindQuickTranslatorHotkey()
         bindWritingHotkey()

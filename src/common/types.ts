@@ -48,6 +48,7 @@ export interface ISettings {
     alwaysShowIcons: boolean
     hotkey?: string
     displayWindowHotkey?: string
+    pinHotkey?: string
     ocrHotkey?: string
     quickTranslatorHotkey?: string
     writingTargetLanguage: string

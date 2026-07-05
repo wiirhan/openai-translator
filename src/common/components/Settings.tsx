@@ -1417,10 +1417,23 @@ export function InnerSettings({
 
     const onBlur = useCallback(async () => {
         if (values.apiKeys && !_.isEqual(values, prevValues)) {
+            const oldValues = prevValues
             await utils.setSettings(values)
             setPrevValues(values)
+            if (
+                [
+                    'hotkey',
+                    'displayWindowHotkey',
+                    'pinHotkey',
+                    'ocrHotkey',
+                    'quickTranslatorHotkey',
+                    'writingHotkey',
+                ].some((key) => values[key as keyof ISettings] !== oldValues[key as keyof ISettings])
+            ) {
+                onSave?.(oldValues)
+            }
         }
-    }, [prevValues, values])
+    }, [onSave, prevValues, values])
 
     const isDesktopApp = utils.isDesktopApp()
 
@@ -2772,6 +2785,9 @@ export function InnerSettings({
                         </FormItem>
                         <FormItem name='displayWindowHotkey' label={t('Display window Hotkey')}>
                             <HotkeyRecorder onBlur={onBlur} testId='display-window-hotkey-recorder' />
+                        </FormItem>
+                        <FormItem name='pinHotkey' label={t('Pin window Hotkey')}>
+                            <HotkeyRecorder onBlur={onBlur} testId='pin-hotkey-recorder' />
                         </FormItem>
                         <FormItem
                             style={{

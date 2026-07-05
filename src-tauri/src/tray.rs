@@ -19,7 +19,7 @@ use tauri_specta::Event;
 
 #[derive(Serialize, Deserialize, Debug, Clone, specta::Type, tauri_specta::Event)]
 pub struct PinnedFromTrayEvent {
-    pinned: bool,
+    pub pinned: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, specta::Type, tauri_specta::Event)]
