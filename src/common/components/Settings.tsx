@@ -2731,7 +2731,7 @@ export function InnerSettings({
                         )}
                         <FormItem
                             style={{
-                                display: isDesktopApp ? 'block' : 'none',
+                                display: isDesktopApp && !utils.isMacOS ? 'block' : 'none',
                             }}
                             name='hideTheIconInTheDock'
                             label={t('Hide the icon in the Dock bar')}
