@@ -5,6 +5,7 @@ import { Action } from './internal-services/db'
 import { codeBlock, oneLine, oneLineTrim } from 'common-tags'
 import { getEngine } from './engines'
 import { getSettings } from './utils'
+import { logDiagnostic, registerDiagnosticRequest, unregisterDiagnosticRequest } from './diagnostics'
 
 export type TranslateMode = 'translate' | 'polishing' | 'summarize' | 'analyze' | 'explain-code' | 'big-bang'
 export type APIModel =
@@ -426,23 +427,90 @@ If you understand, say "yes", and then we will begin.`
     }
 
     const engine = getEngine(effectiveProvider)
-    await engine.sendMessage({
-        signal: query.signal,
-        rolePrompt,
-        commandPrompt,
-        modelOverride: effectiveModel,
-        thinkingBudget,
-        onMessage: async (message) => {
-            await query.onMessage({ ...message, isWordMode })
-        },
-        onFinished: (reason) => {
-            query.onFinish(reason)
-        },
-        onError: (error) => {
-            query.onError(error)
-        },
-        onStatusCode: (statusCode) => {
-            query.onStatusCode?.(statusCode)
-        },
+    const requestId = uuidv4()
+    const startedAt = performance.now()
+    let callbackCount = 0
+    let outputChars = 0
+    let statusCode: number | undefined
+    let terminalCallback = false
+    registerDiagnosticRequest(query.signal, requestId)
+    logDiagnostic('translationStarted', requestId, {
+        provider: effectiveProvider,
+        modelHint: effectiveModel,
+        actionMode: query.mode === 'big-bang' ? query.mode : query.action.mode ?? 'custom',
+        sourceLang: query.mode === 'big-bang' ? undefined : query.detectFrom,
+        targetLang: query.mode === 'big-bang' ? undefined : query.detectTo,
+        inputChars: query.text.length,
+        selectedWordChars: query.mode === 'big-bang' ? 0 : query.selectedWord?.length ?? 0,
     })
+    try {
+        await engine.sendMessage({
+            signal: query.signal,
+            rolePrompt,
+            commandPrompt,
+            modelOverride: effectiveModel,
+            thinkingBudget,
+            onMessage: async (message) => {
+                callbackCount += 1
+                outputChars = message.isFullText ? message.content.length : outputChars + message.content.length
+                if (callbackCount === 1) {
+                    logDiagnostic('translationFirstOutput', requestId, {
+                        chunkChars: message.content.length,
+                        isFullText: message.isFullText ?? false,
+                        elapsedMs: Math.round(performance.now() - startedAt),
+                    })
+                }
+                await query.onMessage({ ...message, isWordMode })
+            },
+            onFinished: (reason) => {
+                terminalCallback = true
+                logDiagnostic('translationFinished', requestId, {
+                    outcome: outputChars > 0 ? 'success' : 'emptySuccess',
+                    finishReason: reason,
+                    statusCode,
+                    callbackCount,
+                    outputChars,
+                    elapsedMs: Math.round(performance.now() - startedAt),
+                })
+                query.onFinish(reason)
+            },
+            onError: (error) => {
+                terminalCallback = true
+                logDiagnostic('translationError', requestId, {
+                    phase: 'provider',
+                    kind: 'provider',
+                    statusCode,
+                    callbackCount,
+                    outputChars,
+                    elapsedMs: Math.round(performance.now() - startedAt),
+                })
+                query.onError(error)
+            },
+            onStatusCode: (nextStatusCode) => {
+                statusCode = nextStatusCode
+                query.onStatusCode?.(nextStatusCode)
+            },
+        })
+        if (!terminalCallback) {
+            logDiagnostic('translationReturned', requestId, {
+                outcome: 'noTerminalCallback',
+                statusCode,
+                callbackCount,
+                outputChars,
+                elapsedMs: Math.round(performance.now() - startedAt),
+            })
+        }
+    } catch (error) {
+        logDiagnostic('translationError', requestId, {
+            phase: 'exception',
+            kind: error instanceof Error ? error.name : 'unknown',
+            statusCode,
+            callbackCount,
+            outputChars,
+            elapsedMs: Math.round(performance.now() - startedAt),
+        })
+        throw error
+    } finally {
+        unregisterDiagnosticRequest(query.signal)
+    }
 }

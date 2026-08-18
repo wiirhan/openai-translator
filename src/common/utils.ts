@@ -8,6 +8,7 @@ import { parse as bestEffortJSONParse } from 'best-effort-json-parser'
 import { commands } from '@/tauri/bindings'
 import { OPENAI_CHAT_COMPLETIONS_API_PATH, OPENAI_PREFERRED_DEFAULT_MODEL } from './openai-api-path'
 import { normalizeSelectableTranslationLang } from './language-preferences'
+import { getDiagnosticRequestId, logDiagnostic } from './diagnostics'
 
 export const defaultAPIURL = 'https://api.openai.com'
 export const defaultAPIURLPath = OPENAI_CHAT_COMPLETIONS_API_PATH
@@ -386,7 +387,7 @@ export async function fetchSSE(input: string, options: FetchSSEOptions) {
             prevArrayJSONPartialIndex = parsedResponse.length
         } catch (e) {
             console.error('streaming json parser error', e)
-            console.error('streaming json parser value', value)
+            console.error('streaming json parser value length', value.length)
             return
         }
     }
@@ -407,89 +408,150 @@ export async function fetchSSE(input: string, options: FetchSSEOptions) {
         }
     }
 
+    let parsedEventCount = 0
     const sseParser = createParser(async (event) => {
         if (event.type === 'event') {
+            parsedEventCount += 1
             await onMessage(event.data)
         }
     })
 
     if (isTauri()) {
         const id = uuidv4()
+        const requestId = getDiagnosticRequestId(options.signal) ?? id
+        const startedAt = performance.now()
         const unlistens: Array<() => void> = []
+        let isAborted = options.signal?.aborted ?? false
+        let rejectAbort: (error: DOMException) => void = () => {}
+        const abortPromise = new Promise<never>((_, reject) => {
+            rejectAbort = reject
+        })
+        let statusCode: number | undefined
+        let rendererChunkCount = 0
+        let rendererBytes = 0
+        let doneSeen = false
+        let resolveDone: () => void = () => {}
+        const donePromise = new Promise<void>((resolve) => {
+            resolveDone = resolve
+        })
         const unlisten = () => {
             unlistens.forEach((cb) => cb())
         }
-        return await new Promise<void>((resolve, reject) => {
-            let isAborted = false
-            options.signal?.addEventListener('abort', () => {
-                isAborted = true
-                unlisten?.()
-                reject()
-                emit('abort-fetch-stream', { id })
-            })
-            listen('fetch-stream-status-code', (event: Event<{ id: string; status: number }>) => {
-                if (isAborted) {
-                    return
-                }
-                if (event.payload.id === id) {
-                    onStatusCode?.(event.payload.status)
-                }
-            })
-                .then((cb) => unlistens.push(cb))
-                .catch((e) => reject(e))
-            listen(
-                'fetch-stream-chunk',
-                (event: Event<{ id: string; data: string; done: boolean; status: number }>) => {
-                    if (isAborted) {
+        const handleAbort = () => {
+            isAborted = true
+            void emit('abort-fetch-stream', { id })
+            rejectAbort(new DOMException('The operation was aborted', 'AbortError'))
+        }
+        options.signal?.addEventListener('abort', handleAbort, { once: true })
+        logDiagnostic('transportStarted', requestId, { transportId: id })
+        try {
+            await Promise.all([
+                listen('fetch-stream-status-code', (event: Event<{ id: string; status: number }>) => {
+                    if (isAborted || event.payload.id !== id) {
                         return
                     }
-                    const payload = event.payload
-                    if (payload.id !== id) {
-                        return
-                    }
-                    if (payload.done) {
-                        return
-                    }
-                    if (payload.status !== 200) {
-                        try {
-                            const data = JSON.parse(payload.data)
-                            onError(data)
-                        } catch (e) {
-                            onError(payload.data)
+                    statusCode = event.payload.status
+                    onStatusCode?.(statusCode)
+                    logDiagnostic('transportStatus', requestId, {
+                        transportId: id,
+                        statusCode,
+                        elapsedMs: Math.round(performance.now() - startedAt),
+                    })
+                }).then((unlisten) => {
+                    unlistens.push(unlisten)
+                }),
+                listen(
+                    'fetch-stream-chunk',
+                    (event: Event<{ id: string; data: string; done: boolean; status: number }>) => {
+                        if (event.payload.id !== id) {
+                            return
                         }
-                        return
+                        const payload = event.payload
+                        if (payload.done) {
+                            doneSeen = true
+                            resolveDone()
+                            return
+                        }
+                        if (isAborted) {
+                            return
+                        }
+                        rendererChunkCount += 1
+                        rendererBytes += new TextEncoder().encode(payload.data).length
+                        if (rendererChunkCount === 1) {
+                            logDiagnostic('transportFirstChunk', requestId, {
+                                transportId: id,
+                                chunkBytes: rendererBytes,
+                                elapsedMs: Math.round(performance.now() - startedAt),
+                            })
+                        }
+                        if (payload.status !== 200) {
+                            try {
+                                onError(JSON.parse(payload.data))
+                            } catch (e) {
+                                onError(payload.data)
+                            }
+                            return
+                        }
+                        if (isJSONStream) {
+                            partialJSONParser({ value: payload.data, done: payload.done })
+                            return
+                        }
+                        if (usePartialArrayJSONParser) {
+                            partialArrayJSONParser({ value: payload.data, done: payload.done })
+                        } else {
+                            sseParser.feed(payload.data)
+                        }
                     }
-                    if (isJSONStream) {
-                        partialJSONParser({ value: payload.data, done: payload.done })
-                        return
-                    }
-                    if (usePartialArrayJSONParser) {
-                        partialArrayJSONParser({ value: payload.data, done: payload.done })
-                    } else {
-                        sseParser.feed(payload.data)
-                    }
-                }
-            )
-                .then((cb) => {
-                    unlistens.push(cb)
-                })
-                .catch((e) => {
-                    reject(e)
-                })
-
-            commands
-                .fetchStream(id, input, JSON.stringify(fetchOptions))
-                .catch((e) => {
-                    reject(e)
-                })
-                .finally(() => {
-                    if (isAborted) {
-                        return
-                    }
-                    unlisten?.()
-                    resolve()
-                })
-        })
+                ).then((unlisten) => {
+                    unlistens.push(unlisten)
+                }),
+            ])
+            logDiagnostic('transportListenersReady', requestId, {
+                transportId: id,
+                elapsedMs: Math.round(performance.now() - startedAt),
+            })
+            if (isAborted) {
+                throw new DOMException('The operation was aborted', 'AbortError')
+            }
+            const result = await Promise.race([
+                commands.fetchStream(id, input, JSON.stringify(fetchOptions)),
+                abortPromise,
+            ])
+            if (result.status === 'error') {
+                throw new Error(String(result.error))
+            }
+            await Promise.race([donePromise, abortPromise])
+            if (statusCode !== undefined && statusCode !== 200) {
+                throw new Error(`HTTP ${statusCode}`)
+            }
+            logDiagnostic('transportFinished', requestId, {
+                transportId: id,
+                outcome: 'success',
+                statusCode,
+                rendererChunkCount,
+                rendererBytes,
+                parsedEventCount,
+                doneSeen,
+                elapsedMs: Math.round(performance.now() - startedAt),
+            })
+        } catch (error) {
+            logDiagnostic('transportFinished', requestId, {
+                transportId: id,
+                outcome: isAborted ? 'aborted' : 'error',
+                errorKind: error instanceof Error ? error.name : 'unknown',
+                statusCode,
+                rendererChunkCount,
+                rendererBytes,
+                parsedEventCount,
+                doneSeen,
+                elapsedMs: Math.round(performance.now() - startedAt),
+            })
+            throw error
+        } finally {
+            options.signal?.removeEventListener('abort', handleAbort)
+            unlisten()
+        }
+        return
     }
 
     const resp = await fetcher(input, fetchOptions)

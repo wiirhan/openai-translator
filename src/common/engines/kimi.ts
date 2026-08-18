@@ -3,6 +3,7 @@ import { getUniversalFetch } from '@/common/universal-fetch'
 import { fetchSSE, getSettings, isDesktopApp, setSettings } from '@/common/utils'
 import { AbstractEngine } from '@/common/engines/abstract-engine'
 import { IModel, IMessageRequest } from '@/common/engines/interfaces'
+import { getDiagnosticRequestId, logDiagnostic } from '@/common/diagnostics'
 
 export const keyKimiAccessToken = 'kimi-access-token'
 export const keyKimiRefreshToken = 'kimi-refresh-token'
@@ -52,8 +53,7 @@ export class Kimi extends AbstractEngine {
         const settings = await getSettings()
         const fetcher = getUniversalFetch()
 
-        req.onStatusCode?.(200)
-
+        const requestId = getDiagnosticRequestId(req.signal)
         const headers = await this.getHeaders()
 
         let createChatResp = await fetcher('https://kimi.moonshot.cn/api/chat', {
@@ -64,6 +64,11 @@ export class Kimi extends AbstractEngine {
                 is_example: false,
             }),
         })
+
+        req.onStatusCode?.(createChatResp.status)
+        if (requestId) {
+            logDiagnostic('kimiChatCreated', requestId, { statusCode: createChatResp.status })
+        }
 
         if (createChatResp.status === 401) {
             if (isDesktopApp() && settings.kimiRefreshToken) {
@@ -91,10 +96,7 @@ export class Kimi extends AbstractEngine {
                     })
                     req.onStatusCode?.(createChatResp.status)
                 } else {
-                    const jsn = (await createChatResp.json()) as {
-                        message: string
-                    }
-                    req.onError('Kimi: ' + jsn.message)
+                    req.onError(`Kimi token refresh failed with HTTP ${refreshResp.status}`)
                     return
                 }
             } else {
@@ -107,11 +109,20 @@ export class Kimi extends AbstractEngine {
             }
         }
 
+        if (!createChatResp.ok) {
+            req.onError(`Kimi chat creation failed with HTTP ${createChatResp.status}`)
+            return
+        }
+
         const chatJsn = (await createChatResp.json()) as {
-            id: string
+            id?: string
         }
 
         const chatID = chatJsn.id
+        if (!chatID) {
+            req.onError('Kimi chat creation response did not include a chat id')
+            return
+        }
 
         const messages = [
             {
@@ -122,6 +133,18 @@ export class Kimi extends AbstractEngine {
 
         let hasError = false
         let finished = false
+        let receivedChars = 0
+        const eventCounts = new Map<string, number>()
+        const logSummary = (outcome: string) => {
+            if (!requestId) return
+            logDiagnostic('kimiStreamSummary', requestId, {
+                outcome,
+                receivedChars,
+                eventCounts: Array.from(eventCounts.entries())
+                    .map(([event, count]) => `${event}:${count}`)
+                    .join(','),
+            })
+        }
         await fetchSSE(`https://kimi.moonshot.cn/api/chat/${chatID}/completion/stream`, {
             method: 'POST',
             headers,
@@ -142,15 +165,47 @@ export class Kimi extends AbstractEngine {
                     req.onError(JSON.stringify(e))
                     return
                 }
-                if (resp.event !== 'cmpl') {
-                    if (resp.event === 'all_done') {
+                const eventName = typeof resp.event === 'string' ? resp.event : 'missing'
+                eventCounts.set(eventName, (eventCounts.get(eventName) ?? 0) + 1)
+                if (eventName === 'error') {
+                    hasError = true
+                    finished = true
+                    const providerError = resp.error
+                    const errorCode = providerError?.code ?? resp.code ?? resp.error_type
+                    const errorMessage =
+                        (typeof providerError?.message === 'string' && providerError.message) ||
+                        (typeof providerError === 'string' && providerError) ||
+                        (typeof resp.message === 'string' && resp.message) ||
+                        (typeof resp.msg === 'string' && resp.msg) ||
+                        'Kimi stream error'
+                    logSummary('providerError')
+                    if (requestId) {
+                        logDiagnostic('kimiProviderError', requestId, {
+                            errorCode: errorCode === undefined ? undefined : String(errorCode),
+                            errorMessage,
+                            eventFields: Object.keys(resp).join(','),
+                        })
+                    }
+                    req.onError(`Kimi: ${errorMessage}`)
+                    return
+                }
+                if (eventName !== 'cmpl') {
+                    if (eventName === 'all_done') {
                         finished = true
-                        req.onFinished('stop')
+                        logSummary(receivedChars > 0 ? 'allDone' : 'emptyAllDone')
+                        if (receivedChars > 0) {
+                            req.onFinished('stop')
+                        } else {
+                            hasError = true
+                            req.onError('Kimi returned an empty response')
+                        }
                         return
                     }
                     return
                 }
-                await req.onMessage({ content: resp.text, role: '' })
+                const text = typeof resp.text === 'string' ? resp.text : ''
+                receivedChars += text.length
+                await req.onMessage({ content: text, role: '' })
             },
             onError: (err) => {
                 hasError = true
@@ -190,7 +245,12 @@ export class Kimi extends AbstractEngine {
         })
 
         if (!finished && !hasError) {
-            req.onFinished('stop')
+            logSummary(receivedChars > 0 ? 'streamEnded' : 'emptyStreamEnded')
+            if (receivedChars > 0) {
+                req.onFinished('stop')
+            } else {
+                req.onError('Kimi stream ended without translation output')
+            }
         }
     }
 }
